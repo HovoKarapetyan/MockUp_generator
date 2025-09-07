@@ -1,6 +1,6 @@
 
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { isolateLogo, generateMockup, generateVideoMockup, generateLogoVariation } from './services/geminiService';
 import type { MockupTask, MockupResult } from './types';
 import { UploadIcon, SparklesIcon, LoaderIcon, DownloadIcon, CameraIcon } from './components/icons';
@@ -38,6 +38,11 @@ const App: React.FC = () => {
     const [bookCoverColor, setBookCoverColor] = useState<string>('#334155');
     const [tshirtColor, setTshirtColor] = useState<string>('#1f2937');
     const [phoneScreenBackgroundColor, setPhoneScreenBackgroundColor] = useState<string>('#FFFFFF');
+    const [laptopColor, setLaptopColor] = useState<string>('#c0c0c0');
+    const [notebookCoverColor, setNotebookCoverColor] = useState<string>('#8b4513');
+    const [toteBagColor, setToteBagColor] = useState<string>('#f5f5dc');
+    const [stickerSheetBackgroundColor, setStickerSheetBackgroundColor] = useState<string>('#e5e7eb');
+    const [posterBackgroundColor, setPosterBackgroundColor] = useState<string>('#ffffff');
     const [blurIntensity, setBlurIntensity] = useState<number>(50);
     const [progress, setProgress] = useState<number>(0);
 
@@ -64,6 +69,35 @@ const App: React.FC = () => {
         { type: 'Billboard', prompt: 'A dramatic 5-second time-lapse video of a busy city intersection at dusk, featuring this logo prominently on an illuminated billboard. The city lights create a dynamic background. Seamless loop.' },
     ], [mugBackgroundColor, businessCardBackgroundColor]);
 
+    const availableImageMockups = useMemo(() => MOCKUP_TASKS.map(t => t.type), [MOCKUP_TASKS]);
+    const availableVideoMockups = useMemo(() => VIDEO_MOCKUP_TASKS.map(t => t.type), [VIDEO_MOCKUP_TASKS]);
+
+    const [selectedMockups, setSelectedMockups] = useState<string[]>(availableImageMockups);
+
+    useEffect(() => {
+        if (generationType === 'image') {
+            setSelectedMockups(availableImageMockups);
+        } else {
+            setSelectedMockups(availableVideoMockups);
+        }
+    }, [generationType, availableImageMockups, availableVideoMockups]);
+
+    const handleMockupSelection = (type: string) => {
+        setSelectedMockups(prev =>
+            prev.includes(type)
+                ? prev.filter(t => t !== type)
+                : [...prev, type]
+        );
+    };
+
+    const handleSelectAll = () => {
+        const allTypes = (generationType === 'image' ? MOCKUP_TASKS : VIDEO_MOCKUP_TASKS).map(t => t.type);
+        setSelectedMockups(allTypes);
+    };
+
+    const handleDeselectAll = () => {
+        setSelectedMockups([]);
+    };
 
     const handleFileSelect = (file: File) => {
         setSelectedImage(file);
@@ -160,6 +194,10 @@ const App: React.FC = () => {
             setError('Please select a logo style to generate mockups.');
             return;
         }
+        if (selectedMockups.length === 0) {
+            setError('Please select at least one mockup to generate.');
+            return;
+        }
         
         const isolatedLogoData = selectedLogoForMockup.split(',')[1];
 
@@ -170,8 +208,9 @@ const App: React.FC = () => {
 
         try {
             if (generationType === 'image') {
+                const tasksToRun = MOCKUP_TASKS.filter(task => selectedMockups.includes(task.type));
                 const generatedImages: MockupResult[] = [];
-                for (const [index, task] of MOCKUP_TASKS.entries()) {
+                for (const [index, task] of tasksToRun.entries()) {
                     setLoadingMessage(`Generating ${task.type} mockup...`);
                     
                     let finalPrompt = task.prompt;
@@ -186,14 +225,23 @@ const App: React.FC = () => {
                         finalPrompt = `Place this logo on the chest of a high-quality, cotton t-shirt with the color ${tshirtColor}, worn by a person in a well-lit, minimalist urban setting. The logo should look naturally integrated with the fabric.${getBlurPromptFragment(blurIntensity)}`;
                     } else if (task.type === 'Phone Screen') {
                         finalPrompt = `Showcase this logo as the main feature of a mobile application's splash screen with a solid background color of ${phoneScreenBackgroundColor}. The phone should be a modern, bezel-less smartphone held by a person in a bright, casual setting like a coffee shop. The logo needs to be centered and clearly visible.${getBlurPromptFragment(blurIntensity)}`;
+                    } else if (task.type === 'Laptop Sticker') {
+                        finalPrompt = `Create a mockup of this logo as a vinyl sticker on the back of a modern, ${laptopColor} laptop. The laptop is open on a desk, with a creative office space in the background.${getBlurPromptFragment(blurIntensity)}`;
+                    } else if (task.type === 'Notebook Cover') {
+                        finalPrompt = `Emboss this logo onto the cover of a premium, ${notebookCoverColor} color leather-bound A5 notebook. The notebook is lying on a rustic wooden desk, next to a fountain pen and a pair of glasses, suggesting a professional or academic setting. The lighting should be warm and focused.${getBlurPromptFragment(blurIntensity)}`;
+                    } else if (task.type === 'Tote Bag') {
+                        finalPrompt = `Place this logo on a ${toteBagColor} color canvas tote bag. The bag is being carried by a person walking through a vibrant farmer's market. The logo should appear as a high-quality print, slightly textured to match the fabric of the bag.${getBlurPromptFragment(blurIntensity)}`;
+                    } else if (task.type === 'Sticker Sheet') {
+                        finalPrompt = `Generate a mockup of a die-cut sticker sheet featuring this logo. The sheet should contain multiple copies of the logo in various sizes. The sticker sheet is placed on a clean, ${stickerSheetBackgroundColor} color background with a slight peel on one corner to show it's a sticker.${getBlurPromptFragment(blurIntensity)}`;
+                    } else if (task.type === 'Poster') {
+                        finalPrompt = `Design a minimalist A3 poster with a background color of ${posterBackgroundColor} where this logo is the central element. The poster is framed and hanging on a clean, white brick wall in a modern art gallery or studio space. The lighting should be soft and even, highlighting the poster's design.${getBlurPromptFragment(blurIntensity)}`;
                     } else {
                          finalPrompt = `${task.prompt}${getBlurPromptFragment(blurIntensity)}`;
                     }
 
                     const mockupImage = await generateMockup(isolatedLogoData, finalPrompt);
-                    const result: MockupResult = { id: index, type: 'image', src: `data:image/png;base64,${mockupImage}`, taskType: task.type };
-                    generatedImages.push(result);
-                    setMockups([...generatedImages]);
+                    const result: MockupResult = { id: Date.now() + index, type: 'image', src: `data:image/png;base64,${mockupImage}`, taskType: task.type };
+                    setMockups(prev => [...prev, result]);
                 }
             } else { // Video generation
                 const generatedVideos: MockupResult[] = [];
@@ -202,16 +250,13 @@ const App: React.FC = () => {
                     setLoadingMessage(message);
                 };
 
-                const tasksToRun = VIDEO_MOCKUP_TASKS.filter(task => 
-                    ['Mug', 'Business Card', 'T-shirt', 'Laptop Sticker', 'Billboard'].includes(task.type)
-                );
+                const tasksToRun = VIDEO_MOCKUP_TASKS.filter(task => selectedMockups.includes(task.type));
 
                 for (const [index, task] of tasksToRun.entries()) {
                     setLoadingMessage(`Queuing ${task.type} video generation...`);
                     const videoUrl = await generateVideoMockup(isolatedLogoData, task.prompt, handleProgressUpdate);
-                    const result: MockupResult = { id: index, type: 'video', src: videoUrl, taskType: task.type };
-                    generatedVideos.push(result);
-                    setMockups([...generatedVideos]);
+                    const result: MockupResult = { id: Date.now() + index, type: 'video', src: videoUrl, taskType: task.type };
+                    setMockups(prev => [...prev, result]);
                 }
             }
         } catch (e) {
@@ -222,7 +267,7 @@ const App: React.FC = () => {
             setLoadingMessage('');
             setProgress(0);
         }
-    }, [selectedLogoForMockup, MOCKUP_TASKS, VIDEO_MOCKUP_TASKS, mugBackgroundColor, businessCardBackgroundColor, bookCoverColor, tshirtColor, phoneScreenBackgroundColor, blurIntensity, generationType]);
+    }, [selectedLogoForMockup, selectedMockups, MOCKUP_TASKS, VIDEO_MOCKUP_TASKS, mugBackgroundColor, businessCardBackgroundColor, bookCoverColor, tshirtColor, phoneScreenBackgroundColor, laptopColor, notebookCoverColor, toteBagColor, stickerSheetBackgroundColor, posterBackgroundColor, blurIntensity, generationType]);
 
 
     const handleDownload = (mockup: MockupResult) => {
@@ -291,8 +336,8 @@ const App: React.FC = () => {
                             </button>
 
                             {isolatedLogoPreview && (
-                                <div className="mt-6 pt-4 border-t border-gray-700">
-                                    <h3 className="text-lg font-semibold text-gray-300 pb-2 text-center">Select a Logo Style</h3>
+                                <div className="mt-6 pt-6 border-t border-gray-700">
+                                    <h2 className="text-2xl font-semibold text-blue-300 mb-4">2. Select a Logo Style</h2>
                                     <div className="flex flex-wrap gap-3 justify-center">
                                         <div
                                             role="button"
@@ -319,7 +364,7 @@ const App: React.FC = () => {
                                                 <p className="text-xs text-center mt-1">{variation.style}</p>
                                             </div>
                                         ))}
-                                        {isIsolating && STYLES_TO_GENERATE.map(s => (
+                                        {isIsolating && !logoVariations.length && STYLES_TO_GENERATE.map(s => (
                                             <div key={s.key} className="h-[100px] w-[100px] bg-gray-700 rounded-lg flex flex-col items-center justify-center p-2">
                                                 <LoaderIcon className="w-8 h-8"/>
                                                 <p className="text-xs text-center mt-1">{s.name}</p>
@@ -331,8 +376,8 @@ const App: React.FC = () => {
 
                             {isolatedLogoPreview && (
                                 <>
-                                    <div className="w-full mt-6 pt-4 border-t border-gray-700 space-y-4">
-                                        <h3 className="text-lg font-semibold text-gray-300">Customize Mockups</h3>
+                                    <div className="w-full mt-6 pt-6 border-t border-gray-700 space-y-4">
+                                        <h2 className="text-2xl font-semibold text-blue-300">3. Customize Mockups</h2>
                                         <div className="flex items-center justify-between">
                                             <label className="text-gray-400">Generation Mode</label>
                                             <div className="flex rounded-lg bg-gray-700 p-1">
@@ -363,6 +408,26 @@ const App: React.FC = () => {
                                             <label htmlFor="phone-color" className="text-gray-400">Phone Screen BG</label>
                                             <input id="phone-color" type="color" value={phoneScreenBackgroundColor} onChange={(e) => setPhoneScreenBackgroundColor(e.target.value)} className="w-10 h-10 p-1 bg-transparent border-none rounded-md cursor-pointer" title="Select Phone Screen Background Color" />
                                         </div>
+                                        <div className="flex items-center justify-between">
+                                            <label htmlFor="laptop-color" className="text-gray-400">Laptop Color</label>
+                                            <input id="laptop-color" type="color" value={laptopColor} onChange={(e) => setLaptopColor(e.target.value)} className="w-10 h-10 p-1 bg-transparent border-none rounded-md cursor-pointer" title="Select Laptop Color" />
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <label htmlFor="notebook-color" className="text-gray-400">Notebook Cover</label>
+                                            <input id="notebook-color" type="color" value={notebookCoverColor} onChange={(e) => setNotebookCoverColor(e.target.value)} className="w-10 h-10 p-1 bg-transparent border-none rounded-md cursor-pointer" title="Select Notebook Cover Color" />
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <label htmlFor="tote-bag-color" className="text-gray-400">Tote Bag Color</label>
+                                            <input id="tote-bag-color" type="color" value={toteBagColor} onChange={(e) => setToteBagColor(e.target.value)} className="w-10 h-10 p-1 bg-transparent border-none rounded-md cursor-pointer" title="Select Tote Bag Color" />
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <label htmlFor="sticker-sheet-bg-color" className="text-gray-400">Sticker Sheet BG</label>
+                                            <input id="sticker-sheet-bg-color" type="color" value={stickerSheetBackgroundColor} onChange={(e) => setStickerSheetBackgroundColor(e.target.value)} className="w-10 h-10 p-1 bg-transparent border-none rounded-md cursor-pointer" title="Select Sticker Sheet Background Color" />
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <label htmlFor="poster-bg-color" className="text-gray-400">Poster BG</label>
+                                            <input id="poster-bg-color" type="color" value={posterBackgroundColor} onChange={(e) => setPosterBackgroundColor(e.target.value)} className="w-10 h-10 p-1 bg-transparent border-none rounded-md cursor-pointer" title="Select Poster Background Color" />
+                                        </div>
                                         <div className="pt-2">
                                             <div className="flex justify-between items-center mb-1">
                                                 <label htmlFor="blur-intensity" className="text-gray-400">Background Blur</label>
@@ -385,10 +450,39 @@ const App: React.FC = () => {
                                     </>
                                 )}
                                     </div>
+
+                                    <div className="w-full mt-6 pt-6 border-t border-gray-700 space-y-4">
+                                        <div className="flex justify-between items-center">
+                                            <h2 className="text-2xl font-semibold text-blue-300">4. Select Mockups</h2>
+                                            <div className="flex gap-2">
+                                                <button onClick={handleSelectAll} className="text-xs text-blue-400 hover:underline">Select All</button>
+                                                <button onClick={handleDeselectAll} className="text-xs text-gray-500 hover:underline">Deselect All</button>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {(generationType === 'image' ? MOCKUP_TASKS : VIDEO_MOCKUP_TASKS).map(task => (
+                                                <button
+                                                    key={task.type}
+                                                    onClick={() => handleMockupSelection(task.type)}
+                                                    className={`px-3 py-1.5 text-sm rounded-full transition-colors duration-200 ${
+                                                        selectedMockups.includes(task.type)
+                                                            ? 'bg-blue-600 text-white font-semibold shadow-md'
+                                                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                                    }`}
+                                                    aria-pressed={selectedMockups.includes(task.type)}
+                                                >
+                                                    {task.type}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+
                                     <button
                                         onClick={handleGenerateMockups}
-                                        disabled={isGeneratingMockups}
-                                        className="mt-6 w-full flex items-center justify-center gap-3 bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-500/50 shadow-lg"
+                                        disabled={isGeneratingMockups || selectedMockups.length === 0}
+                                        className="mt-8 w-full flex items-center justify-center gap-3 bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-500/50 shadow-lg"
+                                        title={selectedMockups.length === 0 ? "Please select at least one mockup type" : "Generate selected mockups"}
                                     >
                                         {isGeneratingMockups ? (
                                             <>
@@ -398,7 +492,7 @@ const App: React.FC = () => {
                                         ) : (
                                             <>
                                                 <SparklesIcon className="w-6 h-6"/>
-                                                <span>Generate Mockups</span>
+                                                <span>Generate {selectedMockups.length} Mockup{selectedMockups.length !== 1 && 's'}</span>
                                             </>
                                         )}
                                     </button>
@@ -408,7 +502,7 @@ const App: React.FC = () => {
                         </div>
 
                         <div className="bg-gray-800/50 p-6 rounded-2xl border border-gray-700 shadow-lg">
-                            <h2 className="text-2xl font-semibold mb-4 text-blue-300">2. View Results</h2>
+                            <h2 className="text-2xl font-semibold mb-4 text-blue-300">Results</h2>
                             {(isGeneratingMockups) && (
                                 <div className="flex flex-col items-center justify-center h-full min-h-[300px]">
                                     <LoaderIcon className="w-16 h-16"/>
