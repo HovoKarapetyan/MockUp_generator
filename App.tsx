@@ -1,6 +1,4 @@
-
-
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { isolateLogo, generateMockup, generateVideoMockup, generateLogoVariation } from './services/geminiService';
 import type { MockupTask, MockupResult } from './types';
 import { UploadIcon, SparklesIcon, LoaderIcon, DownloadIcon, CameraIcon } from './components/icons';
@@ -12,6 +10,33 @@ const STYLES_TO_GENERATE = [
     { name: 'Futuristic', key: 'futuristic' },
     { name: 'Hand-drawn', key: 'hand-drawn' },
     { name: 'Geometric', key: 'geometric' },
+    { name: 'Abstract', key: 'abstract' },
+    { name: 'Vintage', key: 'vintage' },
+    { name: '3D Render', key: '3d-render' },
+];
+
+const FONT_OPTIONS = ['Arial', 'Times New Roman', 'Verdana', 'Georgia', 'Courier New'];
+
+const MOCKUP_COLOR_CONFIG = [
+    { type: 'Book', label: 'Book Cover', video: false },
+    { type: 'Mug', label: 'Mug Background', video: true },
+    { type: 'Business Card', label: 'Card Background', video: true },
+    { type: 'T-shirt', label: 'T-shirt Color', video: true },
+    { type: 'Laptop Sticker', label: 'Laptop Color', video: true },
+    { type: 'Billboard', label: 'Billboard Color', video: true },
+    { type: 'Phone Screen', label: 'Phone Screen BG', video: false },
+    { type: 'Notebook Cover', label: 'Notebook Cover', video: false },
+    { type: 'Tote Bag', label: 'Tote Bag Color', video: false },
+    { type: 'Sticker Sheet', label: 'Sticker Sheet BG', video: false },
+    { type: 'Poster', label: 'Poster BG', video: false },
+];
+
+const BACKGROUND_STYLES = [
+    { key: 'default', name: 'Default' },
+    { key: 'studio', name: 'Studio' },
+    { key: 'outdoor', name: 'Outdoor' },
+    { key: 'urban', name: 'Urban' },
+    { key: 'moody', name: 'Moody' },
 ];
 
 const App: React.FC = () => {
@@ -33,18 +58,36 @@ const App: React.FC = () => {
 
     const [generationType, setGenerationType] = useState<'image' | 'video'>('image');
     
-    const [mugBackgroundColor, setMugBackgroundColor] = useState<string>('#f0f0f0');
-    const [businessCardBackgroundColor, setBusinessCardBackgroundColor] = useState<string>('#2d3748');
-    const [bookCoverColor, setBookCoverColor] = useState<string>('#334155');
-    const [tshirtColor, setTshirtColor] = useState<string>('#1f2937');
-    const [phoneScreenBackgroundColor, setPhoneScreenBackgroundColor] = useState<string>('#FFFFFF');
-    const [laptopColor, setLaptopColor] = useState<string>('#c0c0c0');
-    const [notebookCoverColor, setNotebookCoverColor] = useState<string>('#8b4513');
-    const [toteBagColor, setToteBagColor] = useState<string>('#f5f5dc');
-    const [stickerSheetBackgroundColor, setStickerSheetBackgroundColor] = useState<string>('#e5e7eb');
-    const [posterBackgroundColor, setPosterBackgroundColor] = useState<string>('#ffffff');
+    const [mockupColors, setMockupColors] = useState<{[key: string]: string}>({
+        'Mug': '#f0f0f0',
+        'Business Card': '#2d3748',
+        'Book': '#334155',
+        'T-shirt': '#1f2937',
+        'Phone Screen': '#FFFFFF',
+        'Laptop Sticker': '#c0c0c0',
+        'Notebook Cover': '#8b4513',
+        'Tote Bag': '#f5f5dc',
+        'Sticker Sheet': '#e5e7eb',
+        'Poster': '#ffffff',
+        'Billboard': '#0c2d5e',
+    });
+    
     const [blurIntensity, setBlurIntensity] = useState<number>(50);
     const [progress, setProgress] = useState<number>(0);
+
+    const [customText, setCustomText] = useState<string>('');
+    const [fontFamily, setFontFamily] = useState<string>('Arial');
+    const [textColor, setTextColor] = useState<string>('#FFFFFF');
+    const [shadowColor, setShadowColor] = useState<string>('#000000');
+    const [shadowOpacity, setShadowOpacity] = useState<number>(50);
+    const [shadowBlur, setShadowBlur] = useState<number>(5);
+    const [shadowOffsetX, setShadowOffsetX] = useState<number>(2);
+    const [shadowOffsetY, setShadowOffsetY] = useState<number>(2);
+    const [shadowSpread, setShadowSpread] = useState<number>(0);
+
+    const [backgroundStyle, setBackgroundStyle] = useState<string>('default');
+    const [customBackgroundImage, setCustomBackgroundImage] = useState<string | null>(null);
+    const customBgInputRef = useRef<HTMLInputElement>(null);
 
 
     const MOCKUP_TASKS: MockupTask[] = useMemo(() => [
@@ -62,12 +105,12 @@ const App: React.FC = () => {
     ], []);
 
      const VIDEO_MOCKUP_TASKS: MockupTask[] = useMemo(() => [
-        { type: 'Mug', prompt: `A short, cinematic 5-second video showcasing this logo on a glossy white ceramic coffee mug. The mug should be sitting on a clean, modern surface with a solid background color of ${mugBackgroundColor}. The camera should slowly orbit around the mug, highlighting the logo. The video should be a seamless loop.` },
-        { type: 'Business Card', prompt: `A professional 5-second video mockup of this logo on a premium, thick business card. The card should be shown falling slowly onto a solid, professional background with the color ${businessCardBackgroundColor}, landing gently. The video should be a seamless loop.` },
-        { type: 'T-shirt', prompt: 'A short, cinematic 5-second video of a person wearing a high-quality t-shirt with this logo on the chest. They are walking through a stylish, modern urban environment. The camera slowly zooms in on the logo. Seamless loop.' },
-        { type: 'Laptop Sticker', prompt: 'A professional 5-second video showing this logo as a sticker on a modern laptop. The camera smoothly pans across the laptop, which is sitting on a desk in a creative office setting. Seamless loop.' },
-        { type: 'Billboard', prompt: 'A dramatic 5-second time-lapse video of a busy city intersection at dusk, featuring this logo prominently on an illuminated billboard. The city lights create a dynamic background. Seamless loop.' },
-    ], [mugBackgroundColor, businessCardBackgroundColor]);
+        { type: 'Mug', prompt: `A short, cinematic 5-second video showcasing this logo on a glossy white ceramic coffee mug. The mug should be sitting on a clean, modern surface with a solid background color of __COLOR__. The camera should slowly orbit around the mug, highlighting the logo. The video should be a seamless loop.` },
+        { type: 'Business Card', prompt: `A professional 5-second video mockup of this logo on a premium, thick business card. The card should be shown falling slowly onto a solid, professional background with the color __COLOR__, landing gently. The video should be a seamless loop.` },
+        { type: 'T-shirt', prompt: `A short, cinematic 5-second video of a person wearing a high-quality, __COLOR__ color t-shirt with this logo on the chest. They are walking through a stylish, modern urban environment. The camera slowly zooms in on the logo. Seamless loop.` },
+        { type: 'Laptop Sticker', prompt: `A professional 5-second video showing this logo as a sticker on a modern, __COLOR__ color laptop. The camera smoothly pans across the laptop, which is sitting on a desk in a creative office setting. Seamless loop.` },
+        { type: 'Billboard', prompt: `A dramatic 5-second video of this logo on a large, illuminated billboard with a solid background color of __COLOR__. The camera slowly zooms out to reveal a stylized, abstract city at night. Seamless loop.` },
+    ], []);
 
     const availableImageMockups = useMemo(() => MOCKUP_TASKS.map(t => t.type), [MOCKUP_TASKS]);
     const availableVideoMockups = useMemo(() => VIDEO_MOCKUP_TASKS.map(t => t.type), [VIDEO_MOCKUP_TASKS]);
@@ -119,6 +162,25 @@ const App: React.FC = () => {
     const handleCaptureComplete = (file: File) => {
         handleFileSelect(file);
         setIsCameraOpen(false);
+    };
+    
+    const handleColorChange = (mockupType: string, color: string) => {
+        setMockupColors(prevColors => ({
+            ...prevColors,
+            [mockupType]: color
+        }));
+    };
+
+    const handleCustomBackgroundUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setCustomBackgroundImage(reader.result as string);
+                setBackgroundStyle('custom');
+            };
+            reader.readAsDataURL(file);
+        }
     };
 
     const getBlurLabel = (intensity: number): string => {
@@ -206,55 +268,83 @@ const App: React.FC = () => {
         setMockups([]);
         setProgress(0);
 
+        const textOverlayPrompt = customText.trim()
+            ? ` Additionally, overlay the following text onto the mockup: "${customText.trim()}". This text should be rendered in the ${fontFamily} font using the color ${textColor}. To enhance its legibility and create a sense of depth, the text should have a drop shadow. Use these exact parameters for the shadow: the shadow color is ${shadowColor}, its opacity is ${shadowOpacity}%, the blur radius is ${shadowBlur}px, the horizontal offset is ${shadowOffsetX}px, the vertical offset is ${shadowOffsetY}px, and the spread radius is ${shadowSpread}px. It is crucial that both the text and its shadow integrate naturally with the mockup's existing lighting, perspective, and surface texture.`
+            : '';
+
         try {
             if (generationType === 'image') {
                 const tasksToRun = MOCKUP_TASKS.filter(task => selectedMockups.includes(task.type));
-                const generatedImages: MockupResult[] = [];
                 for (const [index, task] of tasksToRun.entries()) {
-                    setLoadingMessage(`Generating ${task.type} mockup...`);
+                    setLoadingMessage(`Generating ${task.type} mockup (${index + 1}/${tasksToRun.length})...`);
                     
-                    let finalPrompt = task.prompt;
+                    let finalPrompt: string;
+                    let backgroundDataForApi: string | undefined = undefined;
+                    
+                    const BACKGROUND_PROMPTS: { [key: string]: string } = {
+                        studio: ' The scene should be a clean, brightly-lit professional studio setting.',
+                        outdoor: ' The scene should be a natural, serene outdoor setting with soft lighting.',
+                        urban: ' The scene should be a modern, bustling urban environment.',
+                        moody: ' The scene should be a dark, atmospheric setting with dramatic lighting.'
+                    };
 
-                    if (task.type === 'Mug') {
-                        finalPrompt = `Place this logo onto the side of a glossy white ceramic coffee mug. The mug should be sitting on a clean, modern surface, set against a solid background with the color ${mugBackgroundColor}.`;
-                    } else if (task.type === 'Business Card') {
-                        finalPrompt = `Place this logo onto a premium, thick business card with a subtle texture. The card should be shown at a slight angle on a solid, professional background with the color ${businessCardBackgroundColor} to highlight its quality.`;
-                    } else if (task.type === 'Book') {
-                        finalPrompt = `Place this logo realistically on the cover of a sleek, modern hardcover book with a matte finish and the color ${bookCoverColor}. The book should be displayed standing upright on a minimalist light-colored shelf.${getBlurPromptFragment(blurIntensity)}`;
-                    } else if (task.type === 'T-shirt') {
-                        finalPrompt = `Place this logo on the chest of a high-quality, cotton t-shirt with the color ${tshirtColor}, worn by a person in a well-lit, minimalist urban setting. The logo should look naturally integrated with the fabric.${getBlurPromptFragment(blurIntensity)}`;
-                    } else if (task.type === 'Phone Screen') {
-                        finalPrompt = `Showcase this logo as the main feature of a mobile application's splash screen with a solid background color of ${phoneScreenBackgroundColor}. The phone should be a modern, bezel-less smartphone held by a person in a bright, casual setting like a coffee shop. The logo needs to be centered and clearly visible.${getBlurPromptFragment(blurIntensity)}`;
-                    } else if (task.type === 'Laptop Sticker') {
-                        finalPrompt = `Create a mockup of this logo as a vinyl sticker on the back of a modern, ${laptopColor} laptop. The laptop is open on a desk, with a creative office space in the background.${getBlurPromptFragment(blurIntensity)}`;
-                    } else if (task.type === 'Notebook Cover') {
-                        finalPrompt = `Emboss this logo onto the cover of a premium, ${notebookCoverColor} color leather-bound A5 notebook. The notebook is lying on a rustic wooden desk, next to a fountain pen and a pair of glasses, suggesting a professional or academic setting. The lighting should be warm and focused.${getBlurPromptFragment(blurIntensity)}`;
-                    } else if (task.type === 'Tote Bag') {
-                        finalPrompt = `Place this logo on a ${toteBagColor} color canvas tote bag. The bag is being carried by a person walking through a vibrant farmer's market. The logo should appear as a high-quality print, slightly textured to match the fabric of the bag.${getBlurPromptFragment(blurIntensity)}`;
-                    } else if (task.type === 'Sticker Sheet') {
-                        finalPrompt = `Generate a mockup of a die-cut sticker sheet featuring this logo. The sheet should contain multiple copies of the logo in various sizes. The sticker sheet is placed on a clean, ${stickerSheetBackgroundColor} color background with a slight peel on one corner to show it's a sticker.${getBlurPromptFragment(blurIntensity)}`;
-                    } else if (task.type === 'Poster') {
-                        finalPrompt = `Design a minimalist A3 poster with a background color of ${posterBackgroundColor} where this logo is the central element. The poster is framed and hanging on a clean, white brick wall in a modern art gallery or studio space. The lighting should be soft and even, highlighting the poster's design.${getBlurPromptFragment(blurIntensity)}`;
+                    if (backgroundStyle === 'custom' && customBackgroundImage) {
+                        backgroundDataForApi = customBackgroundImage.split(',')[1];
+                        finalPrompt = `Using the provided background image as the scene, realistically place the provided logo onto a ${task.type}. Ensure the logo's lighting, shadows, perspective, and reflections perfectly match the environment of the background image.`;
                     } else {
-                         finalPrompt = `${task.prompt}${getBlurPromptFragment(blurIntensity)}`;
+                        // Use existing logic for default and predefined styles
+                        if (task.type === 'Mug') {
+                            finalPrompt = `Place this logo onto the side of a glossy white ceramic coffee mug. The mug should be sitting on a clean, modern surface, set against a solid background with the color ${mockupColors['Mug']}.`;
+                        } else if (task.type === 'Business Card') {
+                            finalPrompt = `Place this logo onto a premium, thick business card with a subtle texture. The card should be shown at a slight angle on a solid, professional background with the color ${mockupColors['Business Card']} to highlight its quality.`;
+                        } else if (task.type === 'Book') {
+                            finalPrompt = `Place this logo realistically on the cover of a sleek, modern hardcover book with a matte finish and the color ${mockupColors['Book']}. The book should be displayed standing upright on a minimalist light-colored shelf.${getBlurPromptFragment(blurIntensity)}`;
+                        } else if (task.type === 'T-shirt') {
+                            finalPrompt = `Place this logo on the chest of a high-quality, cotton t-shirt with the color ${mockupColors['T-shirt']}, worn by a person in a well-lit, minimalist urban setting. The logo should look naturally integrated with the fabric.${getBlurPromptFragment(blurIntensity)}`;
+                        } else if (task.type === 'Laptop Sticker') {
+                            finalPrompt = `Create a mockup of this logo as a vinyl sticker on the back of a modern, ${mockupColors['Laptop Sticker']} laptop. The laptop is open on a desk, with a creative office space in the background.${getBlurPromptFragment(blurIntensity)}`;
+                        } else if (task.type === 'Billboard') {
+                            finalPrompt = `Display this logo prominently on a large billboard with a solid background color of ${mockupColors['Billboard']}. The billboard is shown in a clean, modern setting, possibly against a clear sky, to emphasize the logo and its background. The lighting should be bright and even.${getBlurPromptFragment(blurIntensity)}`;
+                        } else if (task.type === 'Phone Screen') {
+                            finalPrompt = `Showcase this logo as the main feature of a mobile application's splash screen with a solid background color of ${mockupColors['Phone Screen']}. The phone should be a modern, bezel-less smartphone held by a person in a bright, casual setting like a coffee shop. The logo needs to be centered and clearly visible.${getBlurPromptFragment(blurIntensity)}`;
+                        } else if (task.type === 'Notebook Cover') {
+                            finalPrompt = `Emboss this logo onto the cover of a premium, ${mockupColors['Notebook Cover']} color leather-bound A5 notebook. The notebook is lying on a rustic wooden desk, next to a fountain pen and a pair of glasses, suggesting a professional or academic setting. The lighting should be warm and focused.${getBlurPromptFragment(blurIntensity)}`;
+                        } else if (task.type === 'Tote Bag') {
+                            finalPrompt = `Place this logo on a ${mockupColors['Tote Bag']} color canvas tote bag. The bag is being carried by a person walking through a vibrant farmer's market. The logo should appear as a high-quality print, slightly textured to match the fabric of the bag.${getBlurPromptFragment(blurIntensity)}`;
+                        } else if (task.type === 'Sticker Sheet') {
+                            finalPrompt = `Generate a mockup of a die-cut sticker sheet featuring this logo. The sheet should contain multiple copies of the logo in various sizes. The sticker sheet is placed on a clean, ${mockupColors['Sticker Sheet']} color background with a slight peel on one corner to show it's a sticker.${getBlurPromptFragment(blurIntensity)}`;
+                        } else if (task.type === 'Poster') {
+                            finalPrompt = `Design a minimalist A3 poster with a background color of ${mockupColors['Poster']} where this logo is the central element. The poster is framed and hanging on a clean, white brick wall in a modern art gallery or studio space. The lighting should be soft and even, highlighting the poster's design.${getBlurPromptFragment(blurIntensity)}`;
+                        } else {
+                             finalPrompt = `${task.prompt}${getBlurPromptFragment(blurIntensity)}`;
+                        }
+
+                        // Append the background style if one is selected
+                        if (backgroundStyle in BACKGROUND_PROMPTS) {
+                            finalPrompt += BACKGROUND_PROMPTS[backgroundStyle];
+                        }
                     }
 
-                    const mockupImage = await generateMockup(isolatedLogoData, finalPrompt);
+                    finalPrompt += textOverlayPrompt;
+
+                    const mockupImage = await generateMockup(isolatedLogoData, finalPrompt, backgroundDataForApi);
                     const result: MockupResult = { id: Date.now() + index, type: 'image', src: `data:image/png;base64,${mockupImage}`, taskType: task.type };
                     setMockups(prev => [...prev, result]);
                 }
             } else { // Video generation
-                const generatedVideos: MockupResult[] = [];
-                const handleProgressUpdate = (progressValue: number, message: string) => {
-                    setProgress(progressValue);
-                    setLoadingMessage(message);
-                };
-
                 const tasksToRun = VIDEO_MOCKUP_TASKS.filter(task => selectedMockups.includes(task.type));
 
                 for (const [index, task] of tasksToRun.entries()) {
-                    setLoadingMessage(`Queuing ${task.type} video generation...`);
-                    const videoUrl = await generateVideoMockup(isolatedLogoData, task.prompt, handleProgressUpdate);
+                    const progressPrefix = `[${index + 1}/${tasksToRun.length}] ${task.type} Video: `;
+                    setLoadingMessage(`${progressPrefix}Queuing...`);
+                    
+                    const handleProgressUpdate = (progressValue: number, message: string) => {
+                        setProgress(progressValue);
+                        setLoadingMessage(`${progressPrefix}${message}`);
+                    };
+
+                    const finalPrompt = task.prompt.replace('__COLOR__', mockupColors[task.type]) + textOverlayPrompt;
+                    const videoUrl = await generateVideoMockup(isolatedLogoData, finalPrompt, handleProgressUpdate);
                     const result: MockupResult = { id: Date.now() + index, type: 'video', src: videoUrl, taskType: task.type };
                     setMockups(prev => [...prev, result]);
                 }
@@ -267,7 +357,7 @@ const App: React.FC = () => {
             setLoadingMessage('');
             setProgress(0);
         }
-    }, [selectedLogoForMockup, selectedMockups, MOCKUP_TASKS, VIDEO_MOCKUP_TASKS, mugBackgroundColor, businessCardBackgroundColor, bookCoverColor, tshirtColor, phoneScreenBackgroundColor, laptopColor, notebookCoverColor, toteBagColor, stickerSheetBackgroundColor, posterBackgroundColor, blurIntensity, generationType]);
+    }, [selectedLogoForMockup, selectedMockups, MOCKUP_TASKS, VIDEO_MOCKUP_TASKS, mockupColors, blurIntensity, generationType, customText, fontFamily, textColor, shadowColor, shadowOpacity, shadowBlur, shadowOffsetX, shadowOffsetY, shadowSpread, backgroundStyle, customBackgroundImage]);
 
 
     const handleDownload = (mockup: MockupResult) => {
@@ -385,70 +475,220 @@ const App: React.FC = () => {
                                                 <button onClick={() => setGenerationType('video')} className={`px-4 py-1 text-sm font-medium rounded-md transition-colors ${generationType === 'video' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}>Video</button>
                                             </div>
                                         </div>
-                                        {/* Customization options */}
-                                        {generationType === 'image' ? (
-                                    <div className="space-y-4">
-                                        <div className="flex items-center justify-between">
-                                            <label htmlFor="mug-color" className="text-gray-400">Mug Background</label>
-                                            <input id="mug-color" type="color" value={mugBackgroundColor} onChange={(e) => setMugBackgroundColor(e.target.value)} className="w-10 h-10 p-1 bg-transparent border-none rounded-md cursor-pointer" title="Select Mug Background Color" />
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <label htmlFor="card-color" className="text-gray-400">Card Background</label>
-                                            <input id="card-color" type="color" value={businessCardBackgroundColor} onChange={(e) => setBusinessCardBackgroundColor(e.target.value)} className="w-10 h-10 p-1 bg-transparent border-none rounded-md cursor-pointer" title="Select Business Card Background Color" />
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <label htmlFor="book-color" className="text-gray-400">Book Cover</label>
-                                            <input id="book-color" type="color" value={bookCoverColor} onChange={(e) => setBookCoverColor(e.target.value)} className="w-10 h-10 p-1 bg-transparent border-none rounded-md cursor-pointer" title="Select Book Cover Color" />
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <label htmlFor="tshirt-color" className="text-gray-400">T-shirt Color</label>
-                                            <input id="tshirt-color" type="color" value={tshirtColor} onChange={(e) => setTshirtColor(e.target.value)} className="w-10 h-10 p-1 bg-transparent border-none rounded-md cursor-pointer" title="Select T-shirt Color" />
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <label htmlFor="phone-color" className="text-gray-400">Phone Screen BG</label>
-                                            <input id="phone-color" type="color" value={phoneScreenBackgroundColor} onChange={(e) => setPhoneScreenBackgroundColor(e.target.value)} className="w-10 h-10 p-1 bg-transparent border-none rounded-md cursor-pointer" title="Select Phone Screen Background Color" />
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <label htmlFor="laptop-color" className="text-gray-400">Laptop Color</label>
-                                            <input id="laptop-color" type="color" value={laptopColor} onChange={(e) => setLaptopColor(e.target.value)} className="w-10 h-10 p-1 bg-transparent border-none rounded-md cursor-pointer" title="Select Laptop Color" />
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <label htmlFor="notebook-color" className="text-gray-400">Notebook Cover</label>
-                                            <input id="notebook-color" type="color" value={notebookCoverColor} onChange={(e) => setNotebookCoverColor(e.target.value)} className="w-10 h-10 p-1 bg-transparent border-none rounded-md cursor-pointer" title="Select Notebook Cover Color" />
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <label htmlFor="tote-bag-color" className="text-gray-400">Tote Bag Color</label>
-                                            <input id="tote-bag-color" type="color" value={toteBagColor} onChange={(e) => setToteBagColor(e.target.value)} className="w-10 h-10 p-1 bg-transparent border-none rounded-md cursor-pointer" title="Select Tote Bag Color" />
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <label htmlFor="sticker-sheet-bg-color" className="text-gray-400">Sticker Sheet BG</label>
-                                            <input id="sticker-sheet-bg-color" type="color" value={stickerSheetBackgroundColor} onChange={(e) => setStickerSheetBackgroundColor(e.target.value)} className="w-10 h-10 p-1 bg-transparent border-none rounded-md cursor-pointer" title="Select Sticker Sheet Background Color" />
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <label htmlFor="poster-bg-color" className="text-gray-400">Poster BG</label>
-                                            <input id="poster-bg-color" type="color" value={posterBackgroundColor} onChange={(e) => setPosterBackgroundColor(e.target.value)} className="w-10 h-10 p-1 bg-transparent border-none rounded-md cursor-pointer" title="Select Poster Background Color" />
-                                        </div>
-                                        <div className="pt-2">
-                                            <div className="flex justify-between items-center mb-1">
-                                                <label htmlFor="blur-intensity" className="text-gray-400">Background Blur</label>
-                                                <span className="text-sm font-medium text-blue-300 px-2 py-0.5 rounded-full bg-gray-700">{getBlurLabel(blurIntensity)}</span>
+                                        
+                                        <div className="pt-4 mt-4 border-t border-gray-700 space-y-4">
+                                            <h3 className="text-xl font-semibold text-blue-400">Text Overlay (Optional)</h3>
+                                            <div className="space-y-4">
+                                                <div>
+                                                    <label htmlFor="custom-text" className="text-sm font-medium text-gray-400 block mb-1">Custom Text</label>
+                                                    <input
+                                                        id="custom-text"
+                                                        type="text"
+                                                        value={customText}
+                                                        onChange={(e) => setCustomText(e.target.value)}
+                                                        placeholder="e.g., 'Your Brand Slogan'"
+                                                        className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                                    />
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label htmlFor="font-family" className="text-sm font-medium text-gray-400 block mb-1">Font Family</label>
+                                                        <select
+                                                            id="font-family"
+                                                            value={fontFamily}
+                                                            onChange={(e) => setFontFamily(e.target.value)}
+                                                            className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:ring-blue-500 focus:border-blue-500 transition-colors h-[42px]"
+                                                        >
+                                                            {FONT_OPTIONS.map(font => (
+                                                                <option key={font} value={font}>{font}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label htmlFor="text-color" className="text-sm font-medium text-gray-400 block mb-1">Text Color</label>
+                                                        <input
+                                                            id="text-color"
+                                                            type="color"
+                                                            value={textColor}
+                                                            onChange={(e) => setTextColor(e.target.value)}
+                                                            className="w-full h-[42px] p-1 bg-gray-700 border border-gray-600 rounded-md cursor-pointer"
+                                                            title="Select Text Color"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="pt-4 mt-4 border-t border-gray-700 space-y-4">
+                                                    <h4 className="text-lg font-medium text-gray-300">Shadow Effects</h4>
+                                                    <div className="space-y-4">
+                                                        <div>
+                                                            <label htmlFor="shadow-color" className="text-sm font-medium text-gray-400 block mb-1">Shadow Color</label>
+                                                            <input
+                                                                id="shadow-color"
+                                                                type="color"
+                                                                value={shadowColor}
+                                                                onChange={(e) => setShadowColor(e.target.value)}
+                                                                className="w-full h-[42px] p-1 bg-gray-700 border border-gray-600 rounded-md cursor-pointer"
+                                                                title="Select Shadow Color"
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <div className="flex justify-between items-center">
+                                                                <label htmlFor="shadow-opacity" className="text-sm font-medium text-gray-400">Shadow Opacity</label>
+                                                                <span className="text-sm font-medium text-blue-300 px-2 py-0.5 rounded-full bg-gray-700">{shadowOpacity}%</span>
+                                                            </div>
+                                                            <input
+                                                                id="shadow-opacity"
+                                                                type="range"
+                                                                min="0"
+                                                                max="100"
+                                                                value={shadowOpacity}
+                                                                onChange={(e) => setShadowOpacity(Number(e.target.value))}
+                                                                className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                                                                title="Adjust shadow opacity"
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <div className="flex justify-between items-center">
+                                                                <label htmlFor="shadow-blur" className="text-sm font-medium text-gray-400">Shadow Blur Radius</label>
+                                                                <span className="text-sm font-medium text-blue-300 px-2 py-0.5 rounded-full bg-gray-700">{shadowBlur}px</span>
+                                                            </div>
+                                                            <input
+                                                                id="shadow-blur"
+                                                                type="range"
+                                                                min="0"
+                                                                max="20"
+                                                                value={shadowBlur}
+                                                                onChange={(e) => setShadowBlur(Number(e.target.value))}
+                                                                className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                                                                title="Adjust shadow blur radius"
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <div className="flex justify-between items-center">
+                                                                <label htmlFor="shadow-offset-x" className="text-sm font-medium text-gray-400">Shadow X Offset</label>
+                                                                <span className="text-sm font-medium text-blue-300 px-2 py-0.5 rounded-full bg-gray-700">{shadowOffsetX}px</span>
+                                                            </div>
+                                                            <input
+                                                                id="shadow-offset-x"
+                                                                type="range"
+                                                                min="-10"
+                                                                max="10"
+                                                                value={shadowOffsetX}
+                                                                onChange={(e) => setShadowOffsetX(Number(e.target.value))}
+                                                                className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                                                                title="Adjust shadow X offset"
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <div className="flex justify-between items-center">
+                                                                <label htmlFor="shadow-offset-y" className="text-sm font-medium text-gray-400">Shadow Y Offset</label>
+                                                                <span className="text-sm font-medium text-blue-300 px-2 py-0.5 rounded-full bg-gray-700">{shadowOffsetY}px</span>
+                                                            </div>
+                                                            <input
+                                                                id="shadow-offset-y"
+                                                                type="range"
+                                                                min="-10"
+                                                                max="10"
+                                                                value={shadowOffsetY}
+                                                                onChange={(e) => setShadowOffsetY(Number(e.target.value))}
+                                                                className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                                                                title="Adjust shadow Y offset"
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <div className="flex justify-between items-center">
+                                                                <label htmlFor="shadow-spread" className="text-sm font-medium text-gray-400">Shadow Spread</label>
+                                                                <span className="text-sm font-medium text-blue-300 px-2 py-0.5 rounded-full bg-gray-700">{shadowSpread}px</span>
+                                                            </div>
+                                                            <input
+                                                                id="shadow-spread"
+                                                                type="range"
+                                                                min="0"
+                                                                max="10"
+                                                                value={shadowSpread}
+                                                                onChange={(e) => setShadowSpread(Number(e.target.value))}
+                                                                className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                                                                title="Adjust shadow spread"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <input id="blur-intensity" type="range" min="0" max="100" value={blurIntensity} onChange={(e) => setBlurIntensity(Number(e.target.value))} className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500" title="Adjust background blur intensity" />
                                         </div>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <div className="flex items-center justify-between">
-                                            <label htmlFor="mug-color-video" className="text-gray-400">Mug BG (Video)</label>
-                                            <input id="mug-color-video" type="color" value={mugBackgroundColor} onChange={(e) => setMugBackgroundColor(e.target.value)} className="w-10 h-10 p-1 bg-transparent border-none rounded-md cursor-pointer" title="Select Mug Background Color for Video" />
+                                        
+                                        <div className="space-y-4 pt-4 mt-4 border-t border-gray-700">
+                                            <h3 className="text-xl font-semibold text-blue-400">Color &amp; Effects</h3>
+                                            {MOCKUP_COLOR_CONFIG.filter(c => generationType === 'image' || c.video).map(config => (
+                                                <div key={config.type} className="flex items-center justify-between">
+                                                    <label htmlFor={`${config.type}-color`} className="text-gray-400">{config.label}</label>
+                                                    <input 
+                                                        id={`${config.type}-color`} 
+                                                        type="color" 
+                                                        value={mockupColors[config.type]} 
+                                                        onChange={(e) => handleColorChange(config.type, e.target.value)} 
+                                                        className="w-10 h-10 p-1 bg-transparent border-none rounded-md cursor-pointer" 
+                                                        title={`Select ${config.label} Color`}
+                                                    />
+                                                </div>
+                                            ))}
+                                            {generationType === 'image' && (
+                                                <div className="pt-2">
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <label htmlFor="blur-intensity" className="text-gray-400">Background Blur</label>
+                                                        <span className="text-sm font-medium text-blue-300 px-2 py-0.5 rounded-full bg-gray-700">{getBlurLabel(blurIntensity)}</span>
+                                                    </div>
+                                                    <input id="blur-intensity" type="range" min="0" max="100" value={blurIntensity} onChange={(e) => setBlurIntensity(Number(e.target.value))} className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500" title="Adjust background blur intensity" />
+                                                </div>
+                                            )}
                                         </div>
-                                        <div className="flex items-center justify-between">
-                                            <label htmlFor="card-color-video" className="text-gray-400">Card BG (Video)</label>
-                                            <input id="card-color-video" type="color" value={businessCardBackgroundColor} onChange={(e) => setBusinessCardBackgroundColor(e.target.value)} className="w-10 h-10 p-1 bg-transparent border-none rounded-md cursor-pointer" title="Select Card Background Color for Video" />
-                                        </div>
-                                        <p className="text-xs text-gray-500 text-center pt-2">Advanced settings are not applicable for video mockups.</p>
-                                    </>
-                                )}
+                                        
+                                        {generationType === 'image' && (
+                                            <div className="space-y-4 pt-4 mt-4 border-t border-gray-700">
+                                                <h3 className="text-xl font-semibold text-blue-400">Background Style</h3>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {BACKGROUND_STYLES.map(style => (
+                                                        <button
+                                                            key={style.key}
+                                                            onClick={() => {
+                                                                setBackgroundStyle(style.key);
+                                                                if (style.key !== 'custom') {
+                                                                    setCustomBackgroundImage(null);
+                                                                }
+                                                            }}
+                                                            className={`px-3 py-1.5 text-sm rounded-full transition-colors duration-200 ${
+                                                                backgroundStyle === style.key && backgroundStyle !== 'custom'
+                                                                    ? 'bg-blue-600 text-white font-semibold shadow-md'
+                                                                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                                            }`}
+                                                        >
+                                                            {style.name}
+                                                        </button>
+                                                    ))}
+                                                    <button
+                                                        onClick={() => customBgInputRef.current?.click()}
+                                                        className={`px-3 py-1.5 text-sm rounded-full transition-colors duration-200 ${
+                                                            backgroundStyle === 'custom'
+                                                                ? 'bg-blue-600 text-white font-semibold shadow-md'
+                                                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                                        }`}
+                                                    >
+                                                        Upload Custom
+                                                    </button>
+                                                    <input 
+                                                        type="file" 
+                                                        ref={customBgInputRef} 
+                                                        className="sr-only" 
+                                                        accept="image/png, image/jpeg"
+                                                        onChange={handleCustomBackgroundUpload}
+                                                    />
+                                                </div>
+                                                {customBackgroundImage && backgroundStyle === 'custom' && (
+                                                    <div className="mt-2">
+                                                        <img src={customBackgroundImage} alt="Custom background preview" className="w-full h-24 object-cover rounded-lg border border-gray-600" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
                                     </div>
 
                                     <div className="w-full mt-6 pt-6 border-t border-gray-700 space-y-4">

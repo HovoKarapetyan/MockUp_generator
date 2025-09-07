@@ -55,7 +55,10 @@ const LOGO_STYLE_PROMPTS: { [key: string]: string } = {
     'retro': 'Transform the provided logo into a retro 80s or 90s style. Use bold outlines, vibrant neon colors, chrome effects, and a vintage aesthetic reminiscent of that era. The output must be only the logo on a transparent background.',
     'futuristic': 'Redesign the provided logo with a futuristic, cyberpunk aesthetic. Incorporate sleek metallic textures, sharp geometric angles, and glowing neon or holographic elements. The output must be only the logo on a transparent background.',
     'hand-drawn': 'Reimagine the provided logo as if it were hand-drawn, sketched, or painted. Give it an organic, imperfect, and artistic feel, like a brushstroke or pencil sketch. The output must be only the logo on a transparent background.',
-    'geometric': 'Reconstruct the provided logo using simple geometric shapes like circles, squares, and triangles. Create a clean, abstract, and balanced composition. The output must be only the logo on a transparent background.'
+    'geometric': 'Reconstruct the provided logo using simple geometric shapes like circles, squares, and triangles. Create a clean, abstract, and balanced composition. The output must be only the logo on a transparent background.',
+    'abstract': 'Convert the provided logo into an abstract form. Deconstruct its elements and rearrange them into a new, artistic, and non-representational composition while retaining the original\'s essence and color palette. The output must be only the logo on a transparent background.',
+    'vintage': 'Give the provided logo a vintage, distressed look. Apply faded colors, worn textures, and a classic typography style to make it look like an authentic logo from the 1950s or 1960s. The output must be only the logo on a transparent background.',
+    '3d-render': 'Render the provided logo as a realistic 3D object. Give it depth, realistic materials (like glossy plastic or brushed metal), and dynamic lighting and shadows to make it pop. The output must be only the logo on a transparent background.'
 };
 
 export const generateLogoVariation = async (logoBase64: string, style: string): Promise<string> => {
@@ -82,15 +85,22 @@ export const generateLogoVariation = async (logoBase64: string, style: string): 
 };
 
 
-export const generateMockup = async (logoBase64: string, prompt: string): Promise<string> => {
-    const logoPart = base64ToGenerativePart(logoBase64, 'image/png'); 
+export const generateMockup = async (logoBase64: string, prompt: string, backgroundBase64?: string): Promise<string> => {
+    const logoPart = base64ToGenerativePart(logoBase64, 'image/png');
+    const parts: Part[] = [logoPart];
+
+    if (backgroundBase64) {
+        // Assuming the background is a PNG or JPEG. The user's browser will provide the correct mime type in the data URL.
+        const backgroundPart = base64ToGenerativePart(backgroundBase64, 'image/png');
+        parts.push(backgroundPart);
+    }
+    
+    parts.push({ text: prompt });
+
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image-preview',
         contents: {
-            parts: [
-                logoPart,
-                { text: prompt },
-            ],
+            parts,
         },
         config: {
             responseModalities: [Modality.IMAGE, Modality.TEXT],
