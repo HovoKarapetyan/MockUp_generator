@@ -1,8 +1,7 @@
-
 import React, { useState, useCallback, useMemo } from 'react';
 import { isolateLogo, generateMockup } from './services/geminiService';
 import type { MockupTask } from './types';
-import { UploadIcon, SparklesIcon, LoaderIcon } from './components/icons';
+import { UploadIcon, SparklesIcon, LoaderIcon, DownloadIcon } from './components/icons';
 
 const App: React.FC = () => {
     const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -12,11 +11,18 @@ const App: React.FC = () => {
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [loadingMessage, setLoadingMessage] = useState<string>('');
     const [error, setError] = useState<string | null>(null);
+    
+    const [mugBackgroundColor, setMugBackgroundColor] = useState<string>('#f0f0f0');
+    const [businessCardBackgroundColor, setBusinessCardBackgroundColor] = useState<string>('#2d3748');
+
 
     const MOCKUP_TASKS: MockupTask[] = useMemo(() => [
         { type: 'Book', prompt: 'Place this logo realistically on the cover of a sleek, modern hardcover book with a dark, matte finish. The book should be displayed standing upright on a minimalist light-colored shelf.' },
         { type: 'Mug', prompt: 'Place this logo onto the side of a glossy white ceramic coffee mug. The mug should be sitting on a clean, modern wooden desk next to a laptop.' },
-        { type: 'Business Card', prompt: 'Place this logo onto a premium, thick business card with a subtle texture. The card should be shown at a slight angle on a dark, professional background to highlight its quality.' }
+        { type: 'Business Card', prompt: 'Place this logo onto a premium, thick business card with a subtle texture. The card should be shown at a slight angle on a dark, professional background to highlight its quality.' },
+        { type: 'T-shirt', prompt: 'Place this logo on the chest of a high-quality, black cotton t-shirt worn by a person in a well-lit, minimalist urban setting. The logo should look naturally integrated with the fabric.' },
+        { type: 'Laptop Sticker', prompt: 'Create a mockup of this logo as a vinyl sticker on the back of a modern, silver laptop (like a MacBook). The laptop is open on a desk, with a blurred background of a creative office space.' },
+        { type: 'Billboard', prompt: 'Display this logo prominently on a large billboard overlooking a busy city intersection at dusk. The lighting should be dramatic, with the billboard illuminated, making the logo stand out against the evening sky.' }
     ], []);
 
     const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,7 +55,15 @@ const App: React.FC = () => {
             const generatedImages: string[] = [];
             for (const task of MOCKUP_TASKS) {
                 setLoadingMessage(`Generating ${task.type} mockup...`);
-                const mockupImage = await generateMockup(isolatedLogoData, task.prompt);
+                
+                let finalPrompt = task.prompt;
+                if (task.type === 'Mug') {
+                    finalPrompt = `Place this logo onto the side of a glossy white ceramic coffee mug. The mug should be sitting on a clean, modern surface with a solid background color of ${mugBackgroundColor}.`;
+                } else if (task.type === 'Business Card') {
+                    finalPrompt = `Place this logo onto a premium, thick business card with a subtle texture. The card should be shown at a slight angle on a solid, professional background with the color ${businessCardBackgroundColor} to highlight its quality.`;
+                }
+
+                const mockupImage = await generateMockup(isolatedLogoData, finalPrompt);
                 generatedImages.push(`data:image/png;base64,${mockupImage}`);
                 setMockups([...generatedImages]);
             }
@@ -60,7 +74,16 @@ const App: React.FC = () => {
             setIsLoading(false);
             setLoadingMessage('');
         }
-    }, [selectedImage, MOCKUP_TASKS]);
+    }, [selectedImage, MOCKUP_TASKS, mugBackgroundColor, businessCardBackgroundColor]);
+
+    const handleDownload = (mockupSrc: string, type: string) => {
+        const link = document.createElement('a');
+        link.href = mockupSrc;
+        link.download = `TechPro-${type}-Mockup.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     return (
         <div className="min-h-screen bg-gray-900 text-gray-100 font-sans p-4 sm:p-8">
@@ -89,6 +112,32 @@ const App: React.FC = () => {
                             </label>
                             <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleImageChange} accept="image/*" />
                             
+                            <div className="w-full mt-6 space-y-4">
+                                <h3 className="text-lg font-semibold text-gray-300 border-b border-gray-700 pb-2">Customize Mockups</h3>
+                                <div className="flex items-center justify-between">
+                                    <label htmlFor="mug-color" className="text-gray-400">Mug Background</label>
+                                    <input
+                                      id="mug-color"
+                                      type="color"
+                                      value={mugBackgroundColor}
+                                      onChange={(e) => setMugBackgroundColor(e.target.value)}
+                                      className="w-10 h-10 p-1 bg-transparent border-none rounded-md cursor-pointer"
+                                      title="Select Mug Background Color"
+                                    />
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <label htmlFor="card-color" className="text-gray-400">Card Background</label>
+                                    <input
+                                      id="card-color"
+                                      type="color"
+                                      value={businessCardBackgroundColor}
+                                      onChange={(e) => setBusinessCardBackgroundColor(e.target.value)}
+                                      className="w-10 h-10 p-1 bg-transparent border-none rounded-md cursor-pointer"
+                                      title="Select Business Card Background Color"
+                                    />
+                                </div>
+                            </div>
+
                             <button
                                 onClick={handleGenerateMockups}
                                 disabled={!selectedImage || isLoading}
@@ -134,14 +183,21 @@ const App: React.FC = () => {
                                     </div>
                                 )}
                                 {mockups.length > 0 && (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                         {mockups.map((mockupSrc, index) => (
                                             <div key={index} className="relative group overflow-hidden rounded-lg border border-gray-700 aspect-square">
-                                                <img src={mockupSrc} alt={`Mockup ${index + 1}`} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                                                <div className="absolute inset-0 bg-black/20"></div>
+                                                <img src={mockupSrc} alt={`Mockup for ${MOCKUP_TASKS[index].type}`} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                                                 <p className="absolute bottom-2 left-2 bg-black/50 text-white text-sm px-2 py-1 rounded">
                                                   {MOCKUP_TASKS[index].type} Mockup
                                                 </p>
+                                                <button
+                                                    onClick={() => handleDownload(mockupSrc, MOCKUP_TASKS[index].type)}
+                                                    className="absolute top-2 right-2 bg-blue-600/80 text-white p-2 rounded-full hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800 opacity-0 group-hover:opacity-100 transition-all duration-300 transform scale-75 group-hover:scale-100"
+                                                    aria-label={`Download ${MOCKUP_TASKS[index].type} mockup`}
+                                                >
+                                                    <DownloadIcon className="w-5 h-5" />
+                                                </button>
                                             </div>
                                         ))}
                                     </div>
