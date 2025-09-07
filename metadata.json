@@ -1,0 +1,5 @@
+{
+  "name": "AI Logo Mockup Generator",
+  "description": "An application that uses AI to take a logo from an image and place it onto various product mockups like books, mugs, and business cards.",
+  "requestFramePermissions": []
+}
